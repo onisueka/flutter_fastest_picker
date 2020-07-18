@@ -4,6 +4,7 @@ import 'package:audioplayers/audio_cache.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:localize_and_translate/localize_and_translate.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'BottomNavigationBarClass.dart';
 
@@ -26,8 +27,19 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
   int _cIndex = 1;
+  String _level = 'normal';
   AudioCache _audioCache;
+
+  Future<void> _updateLevel(String level) async {
+    final SharedPreferences prefs = await _prefs;
+
+    setState(() {
+      _level = level;
+      prefs.setString("level", level);
+    });
+  }
 
   @override
   void initState() {
@@ -35,6 +47,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
     // create this only once
     _audioCache = AudioCache(prefix: "audio/", fixedPlayer: AudioPlayer()..setReleaseMode(ReleaseMode.STOP));
+
+    _prefs.then((SharedPreferences prefs) {
+      setState(() {
+        _level = (prefs.getString('level') ?? 'normal');
+      });
+    });
   }
 
   @override
@@ -105,6 +123,38 @@ class _SettingsPageState extends State<SettingsPage> {
                         },
                         hint: Text('Select Language'),
                         value: translator.currentLanguage
+                    ),
+                  ),
+                  Text(
+                    translator.translate('level'),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(15.0, 0, 0, 0),
+                    child: DropdownButton<String>(
+                        items: [
+                          DropdownMenuItem<String>(
+                              child: Text(translator.translate('easy')),
+                              value: 'easy'
+                          ),
+                          DropdownMenuItem<String>(
+                              child: Text(translator.translate('normal')),
+                              value: 'normal'
+                          ),
+                          DropdownMenuItem<String>(
+                              child: Text(translator.translate('hard')),
+                              value: 'hard'
+                          ),
+                        ],
+                        onChanged: (String value) {
+                          setState(() {
+                            _updateLevel(value);
+                          });
+                        },
+                        hint: Text('Select Language'),
+                        value: _level
                     ),
                   )
                 ],

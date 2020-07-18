@@ -33,6 +33,10 @@ dependencies:
   shared_preferences: ^0.5.8
   audioplayers: any
   localize_and_translate: ^2.2.2
+  screenshot: ^0.2.0
+  path_provider: ^1.5.1
+  image_picker: ^0.6.3+1
+  social_share: ^2.0.5
 
 dev_dependencies:
   flutter_test:
@@ -47,7 +51,7 @@ flutter_icons:
   android: true # can specify file name here e.g. "ic_launcher"
   ios: true # can specify file name here e.g. "My-Launcher-Icon"
   adaptive_icon_background: "assets/images/oni-background.png" # only available for Android 8.0 devices and above
-  adaptive_icon_foreground: "assets/images/logo.png" # only available for Android 8.0 devices and above
+  adaptive_icon_foreground: "assets/images/oni-foreground.png" # only available for Android 8.0 devices and above
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -65,9 +69,11 @@ flutter:
     - assets/images/creator.png
     - assets/images/logo.png
     - assets/audio/menu.mp3
-    - assets/audio/ninja.mp3
     - assets/audio/no.mp3
-    - assets/audio/yes.mp3
+    - assets/audio/ok.mp3
+    - assets/audio/victory.mp3
+    - assets/audio/failure.mp3
+    - assets/audio/start.mp3
     - assets/languages/en.json
     - assets/languages/th.json
 

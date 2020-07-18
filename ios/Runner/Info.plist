@@ -41,5 +41,17 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>LSApplicationQueriesSchemes</key>
+    <array>
+    	<string>instagram-stories</string>
+    	<string>facebook-stories</string>
+    	<string>facebook</string>
+    	<string>instagram</string>
+    	<string>twitter</string>
+    	<string>whatsapp</string>
+        <string>tg</string>
+    </array>
+    <key>FacebookAppID</key>
+    <string>275804749142406</string>
 </dict>
 </plist>

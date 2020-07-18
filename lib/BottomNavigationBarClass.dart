@@ -2,8 +2,10 @@ import 'package:audioplayers/audio_cache.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:localize_and_translate/localize_and_translate.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class BottomNavigationBarClass {
+  Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
   int _cIndex = 0;
   AudioCache _audioCache;
 
@@ -32,20 +34,24 @@ class BottomNavigationBarClass {
       ],
       onTap: (index){
         _audioCache.play('menu.mp3');
-        switch(index) {
-          case 0:
-            Navigator.pushNamedAndRemoveUntil(context, "/main", (r) => false);
-//            Navigator.pushNamed(context, '/main');
-            break;
-          case 1:
-            Navigator.pushNamedAndRemoveUntil(context, "/settings", (r) => false);
-//            Navigator.pushNamed(context, '/settings');
-            break;
-          case 2:
-            Navigator.pushNamedAndRemoveUntil(context, "/about", (r) => false);
-//            Navigator.pushNamed(context, '/about');
-            break;
-        }
+        _prefs.then((SharedPreferences prefs) {
+          if(prefs.getString('stage') == 'play') return;
+          switch(index) {
+            case 0:
+              if(prefs.getString('stage') == 'end') {
+                Navigator.pushNamedAndRemoveUntil(context, "/end", (r) => false);
+              } else {
+                Navigator.pushNamedAndRemoveUntil(context, "/start", (r) => false);
+              }
+              break;
+            case 1:
+              Navigator.pushNamedAndRemoveUntil(context, "/settings", (r) => false);
+              break;
+            case 2:
+              Navigator.pushNamedAndRemoveUntil(context, "/about", (r) => false);
+              break;
+          }
+        });
       },
     );
   }

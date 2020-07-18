@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:async';
 import 'package:audioplayers/audio_cache.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:localize_and_translate/localize_and_translate.dart';
@@ -30,12 +31,14 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
-  int _counter = 0;
-  String _stage = 'play';
+  int _startNumber = 0;
   int _cIndex = 0;
-  List<int> _cpuAnswers = [];
-  int _countCorrectPlace = 0;
-  int _countCorrectDigit = 0;
+  String _stage = 'play';
+  int _timer = 60;
+  Timer _countdownn;
+
+  int _totalNumber = 60;
+  List<int> _cpuNumbers = [];
   int _fields = 4;
   List<TextEditingController> inputNumbers = List.generate(4, (i) => TextEditingController());
   List<FocusNode> focusNumbers = List.generate(4, (i) => FocusNode());
@@ -44,7 +47,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _incrementCounter() async {
     final SharedPreferences prefs = await _prefs;
-    final int counter = (prefs.getInt('counter') ?? 0) + 1;
+    final int startNumber = (prefs.getInt('startNumber') ?? 0) + 1;
 
     setState(() {
       // This call to setState tells the Flutter framework that something has
@@ -52,23 +55,8 @@ class _HomePageState extends State<HomePage> {
       // so that the display can reflect the updated values. If we changed
       // _counter without calling setState(), then the build method would not be
       // called again, and so nothing would appear to happen.
-      _counter = counter;
-      prefs.setInt("counter", counter);
-    });
-  }
-
-  void _incrementTab(index) {
-    setState(() {
-      _cIndex = index;
-    });
-  }
-
-  Future<void> _incrementHistories(String history) async {
-    final SharedPreferences prefs = await _prefs;
-
-    setState(() {
-      _histories.add(history);
-      prefs.setString("histories", jsonEncode(_histories));
+      _startNumber = startNumber;
+      prefs.setInt("startNumber", startNumber);
     });
   }
 
@@ -78,59 +66,65 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _stage = stage;
       prefs.setString("stage", stage);
+      prefs.setInt("timer", _timer);
     });
   }
 
-  Future<void> _replayStage() async {
+  void _setRandomNumbers() async {
     final SharedPreferences prefs = await _prefs;
+    _cpuNumbers = [];
 
+    _cpuNumbers = new List<int>.generate(_totalNumber, (i) => i + 1);
+    _cpuNumbers = _cpuNumbers.toList()..shuffle();
+
+    print(_cpuNumbers);
+  }
+
+  double getWidthButton(BuildContext context) {
+    double divider = (_totalNumber == 90 ? 11.5: 10.0);
+    return (MediaQuery.of(context).size.width / (_totalNumber / divider)) - 9.0;
+  }
+
+  double getHeightButton(BuildContext context) {
+    double width = getWidthButton(context);
+    double height = (MediaQuery.of(context).size.height / 10) - 22.0;
+    return (height > width ? width: height);
+  }
+
+  void _startTimer() {
+    const oneSec = const Duration(seconds: 1);
+    _countdownn = new Timer.periodic(oneSec, (Timer timer) => setState(() {
+          if (_timer <= 1) {
+            _timer = _timer - 1;
+            _audioCache.play('failure.mp3');
+            _updateStage('end');
+            timer.cancel();
+            Navigator.pushNamedAndRemoveUntil(context, "/end", (r) => false);
+          } else {
+            _timer = _timer - 1;
+          }
+
+          if(_timer < 10 && _timer > 1) {
+            AudioCache _audioCacheTime = AudioCache(prefix: "audio/", fixedPlayer: AudioPlayer()..seek(new Duration(milliseconds: 0))..setReleaseMode(ReleaseMode.RELEASE));
+            _audioCacheTime.play('no.mp3');
+          }
+        },
+      ),
+    );
+  }
+
+  void _decreaseTimer() {
     setState(() {
-      _counter =  0;
-
-      _histories = [];
-      for(int i = 0; i < _fields; i++) {
-        inputNumbers[i].text = '';
+      if(_timer > 1) {
+        _timer = _timer - 1;
       }
-
-      prefs.clear();
-
-      _updateStage("play");
-      _setRandomDigits();
     });
   }
 
-  void _resetInputNumbers() {
-    for(int i = 0; i < _fields; i++) {
-      inputNumbers[i].text = '';
-    }
-  }
-
-  void _setRandomDigits() async {
-    final SharedPreferences prefs = await _prefs;
-    _cpuAnswers = [];
-
-    for (var i = 0; i < 4; i++) {
-      int _canAdded = 0;
-      do {
-        int newNumber = new Random().nextInt(10);
-        if(_cpuAnswers.toString().indexOf(newNumber.toString()) == -1) {
-          _cpuAnswers.add(newNumber);
-          _canAdded = 1;
-        }
-      } while(_canAdded == 0);
-    }
-
-    prefs.setString("cpuAnswers", jsonEncode(_cpuAnswers));
-    print(_cpuAnswers);
-  }
-
-  List<int> _getAllDigits() {
-    List<int> allDigits = [];
-    for(int i = 0; i < _fields; i++) {
-      if(inputNumbers[i].text != '')
-        allDigits.add(int.parse(inputNumbers[i].text));
-    }
-    return allDigits;
+  @override
+  void dispose() {
+    _countdownn.cancel();
+    super.dispose();
   }
 
   @override
@@ -138,21 +132,29 @@ class _HomePageState extends State<HomePage> {
     super.initState();
 
     // create this only once
-    _audioCache = AudioCache(prefix: "audio/", fixedPlayer: AudioPlayer()..setReleaseMode(ReleaseMode.STOP));
+    _audioCache = AudioCache(prefix: "audio/", fixedPlayer: AudioPlayer()..setReleaseMode(ReleaseMode.RELEASE));
+
 
     _prefs.then((SharedPreferences prefs) {
       setState(() {
-        _counter = (prefs.getInt('counter') ?? 0);
+        _startNumber = (prefs.getInt('startNumber') ?? 0);
         _stage = (prefs.getString('stage') ?? 'play');
-        _histories = (jsonDecode(prefs.getString('histories') ?? '[]') as List<dynamic>).cast<String>();
-        _cpuAnswers = (jsonDecode(prefs.getString('cpuAnswers') ?? '[]') as List<dynamic>).cast<int>();
-
-        if(_cpuAnswers.length == 0) {
-          _setRandomDigits();
+        _timer = (prefs.getInt('timer') ?? 60);
+        switch (prefs.getString('level')) {
+          case 'easy':
+            _totalNumber = 30;
+            break;
+          case 'hard':
+            _totalNumber = 90;
+            break;
+          default:
+            _totalNumber = 60;
         }
       });
     });
 
+    _setRandomNumbers();
+    _startTimer();
   }
 
   @override
@@ -190,226 +192,94 @@ class _HomePageState extends State<HomePage> {
           mainAxisAlignment: MainAxisAlignment.start,
           children: <Widget>[
             Container (
-              height: MediaQuery.of(context).size.height / 2.18,
+              height: MediaQuery.of(context).size.height - 136,
               child: Column (
                 children: <Widget>[
                   Padding (
-                    padding: EdgeInsets.all(15.0),
-                    child: Text(
-                      translator.translate('instruction'),
-                      style: TextStyle(
-                          fontSize: 12.0
-                      ),
-                    ),
-                  ),
-                  Row (
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: <Widget>[
-                      for(int i = 0; i < _fields; i++)
-                        new Expanded (
-                            child: Padding (
-                              padding: const EdgeInsets.all(8.0),
-                              child: TextField(
-                                  controller: inputNumbers[i],
-                                  focusNode: focusNumbers[i],
-                                  enabled: (_stage == 'end' ? false: true),
-                                  keyboardType: TextInputType.number,
-                                  inputFormatters: [WhitelistingTextInputFormatter.digitsOnly],
-                                  textAlign: TextAlign.center,
-                                  decoration: new InputDecoration(
-                                    border: OutlineInputBorder(),
-                                  ),
-                                  style: TextStyle (
-                                      fontSize: 25.0
-                                  ),
-                                  onTap: () {
-                                    inputNumbers[i].text = '';
-                                  },
-                                  onChanged: (text) {
-                                    _audioCache.play('ninja.mp3');
-                                    inputNumbers[i].selection = TextSelection.collapsed(offset: 0);
-                                    if(i != (_fields - 1)) {
-                                      focusNumbers[i + 1].requestFocus();
-                                      inputNumbers[i + 1].text = '';
-                                    } else {
-                                      FocusScope.of(context).requestFocus(FocusNode());
-                                    }
-
-                                    // Check duplicate number
-                                    for(int j = 0; j < _fields; j++) {
-                                      if(i == j) continue;
-                                      if(inputNumbers[j].text == text) {
-                                        inputNumbers[i].text = '';
-                                        focusNumbers[i].requestFocus();
-                                      }
-                                    }
-                                  }
-                              ),
-                            )
-                        ),
-                    ],
-                  ),
-                  _stage == 'play' ?
-                  FlatButton (
-                      color: Colors.red,
-                      textColor: Colors.white,
-                      disabledColor: Colors.grey,
-                      disabledTextColor: Colors.black,
-                      padding: EdgeInsets.all(8.0),
-                      splashColor: Colors.redAccent,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18.0)
-                      ),
-                      onPressed: _getAllDigits().length != 4 ? null: () {
-                        FocusScope.of(context).requestFocus(FocusNode());
-
-                        _countCorrectPlace = 0;
-                        _countCorrectDigit = 0;
-                        String _clientAnswers = '';
-                        for(int i = 0; i < _fields; i++) {
-                          int _clientAnswer = int.parse(inputNumbers[i].text == '' ? '-1': inputNumbers[i].text);
-                          _clientAnswers += (inputNumbers[i].text == '' ? ' ': inputNumbers[i].text);
-                          if(_cpuAnswers[i] == _clientAnswer) {
-                            _countCorrectPlace += 1;
-                            _countCorrectDigit += 1;
-                          } else {
-                            if(_cpuAnswers.toString().indexOf(_clientAnswer.toString()) != -1) {
-                              _countCorrectDigit += 1;
-                            }
-                          }
-                        }
-
-                        // Keep Histories
-//                        _incrementHistories('You guess ' + _clientAnswers + ' \n($_countCorrectDigit correct digits,  $_countCorrectPlace correct place position)');
-                        _incrementHistories(
-                            translator.translate("history01", {
-                              'digits': _clientAnswers
-                            }) +
-                            '\n' +
-                            translator.translate("history02", {
-                              'correctDigits': _countCorrectDigit.toString(),
-                              'correctPlaces': _countCorrectPlace.toString()
-                            })
-                        );
-                        _incrementCounter();
-                        _resetInputNumbers();
-
-                        if(_countCorrectPlace == 4) { // Win
-                          _audioCache.play('yes.mp3');
-                          _updateStage('end');
-                        } else {
-                          _audioCache.play('no.mp3');
-                        }
-
-                        _getAllDigits();
-                      },
-                      child: Text (
-                        translator.translate('analyse'),
-                        style: TextStyle(
-                          fontSize: 15.0,
-                          color: Colors.white,
-                        ),
-                      )
-                  ):
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(80.0, 0, 80.0, 0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    padding: EdgeInsets.all(10.0),
+                    child: Row (
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: <Widget>[
-                        Expanded(
-                          flex: 1,
-                          child: Text(
-                            translator.translate('you'),
-                            textAlign: TextAlign.center,
+                        Text(
+                          (_startNumber + 1).toString(),
+                          style: TextStyle(
+                            fontSize: 16.0,
+                            color: Colors.orange,
+                            fontWeight: FontWeight.bold,
+                            fontStyle: FontStyle.italic
                           ),
                         ),
-                        Expanded(
-                            flex: 2,
-                            child: FlatButton(
-                              color: Colors.green,
-                              textColor: Colors.white,
-                              disabledColor: Colors.grey,
-                              disabledTextColor: Colors.black,
-                              padding: EdgeInsets.all(8.0),
-                              splashColor: Colors.greenAccent,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(18.0)
-                              ),
-                              onPressed: () {
-                                _replayStage();
-                              },
-                              child: Column( // Replace with a Row for horizontal icon + text
-                                children: <Widget>[
-                                  Icon(Icons.replay)
-                                ],
-                              ),
-                            )
-                        ),
-                        Expanded(
-                          flex: 1,
-                          child: Text(
-                            translator.translate('win'),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: Colors.green
-                            ),
+                        Text(
+                          _timer.toString(),
+                          style: TextStyle(
+                              fontSize: 16.0,
+                              color: (_timer < 10 ? Colors.red: Colors.green),
+                              fontWeight: FontWeight.bold
                           ),
                         ),
                       ],
-                    ),
+                    )
+
                   ),
                   Padding (
-                    padding: EdgeInsets.all(18.0),
-                    child:  Row (
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    padding: EdgeInsets.all(0),
+                    child: Column(
                       children: <Widget>[
-                        Text(
-                            translator.translate('timeToGuess01'),
-                            style: TextStyle(
-                                fontSize: 12.0
-                            )
-                        ),
-                        Padding(
-                          padding: EdgeInsets.fromLTRB(5.0, 0, 5.0, 0),
-                          child: Text(
-                              '$_counter',
-                              style: TextStyle(
-                                  fontSize: 20.0,
-                                  color: Colors.red
+                        Wrap (
+                          children: <Widget>[
+                            for(int i = 0; i < _cpuNumbers.length; i++)
+                              new Padding (
+                                padding: EdgeInsets.all(1.5),
+                                child: SizedBox (
+                                    width: getWidthButton(context),
+                                    height: getHeightButton(context),
+                                    child: OutlineButton (
+                                      padding: EdgeInsets.all(0),
+                                      color: Colors.white,
+                                      textColor: Colors.black54,
+                                      highlightedBorderColor: Colors.white,
+                                      disabledTextColor: Colors.white,
+                                      disabledBorderColor: Colors.white,
+                                      splashColor: Colors.grey,
+                                      borderSide: BorderSide(
+                                        color: Colors.grey,
+                                        width: 1,
+                                      ),
+                                      onPressed: (_cpuNumbers[i] > _startNumber ? () async {
+                                        AudioCache _audioCacheNow = AudioCache(prefix: "audio/", fixedPlayer: AudioPlayer()..seek(new Duration(milliseconds: 0))..setReleaseMode(ReleaseMode.RELEASE));
+                                        if(_cpuNumbers[i] == (_startNumber + 1)) {
+                                          _incrementCounter();
+                                          if((_startNumber + 1) == _totalNumber) {
+                                            _audioCacheNow.play('victory.mp3');
+                                            _updateStage('end');
+                                            Navigator.pushNamedAndRemoveUntil(context, "/end", (r) => false);
+                                          } else {
+                                            _audioCacheNow.play('ok.mp3');
+                                          }
+                                        } else {
+                                          _audioCacheNow.play('no.mp3');
+                                          _decreaseTimer();
+                                        }
+                                      }: null),
+                                      child: Text (
+                                        _cpuNumbers[i].toString(),
+                                        style: TextStyle (
+                                          fontSize: 12.0,
+                                          fontFamily: "KoHo",
+                                          fontWeight: FontWeight.bold
+                                        ),
+                                      ),
+                                    )
+                                ),
                               )
-                          ),
-                        ),
-                        Text(
-                            translator.translate('timeToGuess02'),
-                            style: TextStyle(
-                                fontSize: 12.0
-                            )
-                        ),
+                          ],
+                        )
                       ],
                     ),
                   ),
                 ],
               ),
             ),
-            Container (
-                height: MediaQuery.of(context).size.height / 3.5,
-                child: ListView (
-                  scrollDirection: Axis.vertical,
-                  children: <Widget>[
-                    for (var history in _histories.reversed.toList())
-                      new ListTile(
-                        leading: Icon(Icons.lightbulb_outline),
-                        title: Text(
-                          history,
-                          style: TextStyle(
-                              fontSize: 10.0
-                          ),
-                        ),
-                      ),
-                  ],
-                )
-            ),
-
           ],
         ),
       ),

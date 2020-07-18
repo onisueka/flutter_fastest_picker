@@ -4,9 +4,11 @@ import 'package:localize_and_translate/localize_and_translate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:splashscreen/splashscreen.dart';
 import 'package:page_transition/page_transition.dart';
-import 'about.dart';
-import 'settings.dart';
-import 'home.dart';
+import 'package:fastest_picker/about.dart';
+import 'package:fastest_picker/settings.dart';
+import 'package:fastest_picker/home.dart';
+import 'package:fastest_picker/homeStart.dart';
+import 'package:fastest_picker/homeEnd.dart';
 
 void main() async{
   // if your flutter > 1.7.8 :  ensure flutter activated
@@ -53,8 +55,14 @@ class MyApp extends StatelessWidget {
       home: SplashPage(),
       onGenerateRoute: (settings) {
         switch (settings.name) {
+          case '/start':
+            return PageTransition(child: HomeStartPage(title: translator.translate('headHomeStart')), type: PageTransitionType.fade);
+            break;
           case '/main':
             return PageTransition(child: HomePage(title: translator.translate('headHome')), type: PageTransitionType.fade);
+            break;
+          case '/end':
+            return PageTransition(child: HomeEndPage(title: translator.translate('headHomeEnd')), type: PageTransitionType.fade);
             break;
           case '/settings':
             return PageTransition(child: SettingsPage(title: translator.translate('headSettings')), type: PageTransitionType.fade);
@@ -86,7 +94,7 @@ class _SplashPageState extends State<SplashPage> {
   Widget build(BuildContext context) {
     return SplashScreen(
         seconds: 3,
-        navigateAfterSeconds: HomePage(title: translator.translate('headHome')),
+        navigateAfterSeconds: HomeStartPage(title: translator.translate('headHomeStart')),
         title: Text(
           'Develop Alone :)',
           style: TextStyle(fontSize: 15.0, fontFamily: 'Orbitron'),
